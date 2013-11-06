@@ -114,14 +114,14 @@ class Board
   def to_s
     #puts 'rows: ' + @rows.to_s
     #puts 'cols: ' + @cols.to_s
-    #puts " _"*@cols
+    puts " _"*@cols
 
     for i in (0...@rows)
       print '|'
       print @board[i].join ' '
       print "|\n"
     end
-    #puts " -"*@cols
+    puts " -"*@cols
     @parts.each_with_index do |p, i|
       #puts "Part #{i}: "
       p.positions.each do |pos|
@@ -339,7 +339,13 @@ class Search
       node = @nodes.first
       @nodes.delete node
 
+      puts "*"*90
+      puts "Node to be Expanded"
+      puts "Parent"
+      puts node.parent
+      puts "Node"
       puts node
+      puts "Nodes count: #{@nodes.count}"
       puts "*"*90
 
       @@last_node = node
@@ -380,7 +386,7 @@ class Search
       if can_move >= 0
         cost = part.move can_move, dir
       end
-      if cost >= 0
+      if cost >= 0 && can_move >=0
         new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
         nodes << new_node
       end
@@ -409,4 +415,5 @@ class Solver
   end
 end
 
-@solver = Solver.new 'test_ad'
+#@solver = Solver.new 'test_ad'
+@solver = Solver.new# 'test2'
