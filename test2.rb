@@ -315,7 +315,6 @@ class Search
     solution = solve
     puts '---------------Solution-------------'
     puts solution
-
   end
 
   def solve
@@ -332,8 +331,10 @@ class Search
       end
 
       puts ">>>>>>>>>>>>>>>> node count before: #{@nodes.count}"
-
-      @nodes = queue(@nodes, expand(node, @problem))
+      puts "NN"*100
+      puts node.depth
+      puts "NN"*100
+      @nodes = queue(@nodes, Search.expand(node, @problem))
 
       puts "<<<<<<<<<<<<<<<< node count: #{@nodes.count}"
 
@@ -349,19 +350,20 @@ class Search
 
   end
 
-  def expand node, problem
+  def self.expand node, problem
     state = Marshal::load(Marshal.dump(node.state))
     #state = node.state#.clone
     nodes = []
     problem.operators(state).each do |op|
       part, dir = op
+      part = Marshal::load(Marshal.dump(part))
       can_move = part.can_move dir
       cost = 0
       if can_move >= 0
         cost = part.move can_move, dir
       end
       if cost > 0
-        new_node = Node.new(state, node.state, op, node.depth + 1, node.path_cost + cost)
+        new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
         nodes << new_node
       end
     end
@@ -377,13 +379,15 @@ end
 
 class Solver
 
+  attr_accessor :problem
+
   def initialize file_name=nil
     @board = Board.new (2+rand(4)), (2+rand(4)), file_name
-    b2 = Marshal::load(Marshal.dump(@board))
+    #b2 = Marshal::load(Marshal.dump(@board))
     @problem = Problem.new @board
     Search.new @problem
-    puts @board.parts.__id__
-    puts b2.parts.__id__
+    #puts @board.parts.__id__
+    #puts b2.parts.__id__
   end
 end
 
