@@ -18,7 +18,7 @@ class Node
 
   def to_s
     s = @state.to_s
-    s += "\n\nDepth: #{@depth}\n\nCost: #{@path_cost}"
+    s += "\n\nDepth: #{@depth}\n\nCost: #{@path_cost}\n\nOperator: #{@operator}"
   end
 end
 
@@ -36,22 +36,24 @@ class Board
     else
       generate_board_from_file file_name
     end
-    puts "-"*10 + "Board Initialized" + "-"*10
-    p self
+    #puts "-"*10 + "Board Initialized" + "-"*10
+    #p self
 
   end
 
   def generate_board_from_file file_name
-    p @board
+    #p @board
     @board = Array.new
     r, c = 0, 0
+    parts_count = 0
     File.open("#{file_name}.txt", "r").each_line do |line|
       @board << Array.new
       c = 0
       for char in line.split ""
         case char
         when 'O'
-          @board[r][c] = Part.new r, c, self
+          @board[r][c] = Part.new r, c, self, parts_count
+          parts_count += 1
           @parts << @board[r][c]
         when "\n"
           next
@@ -93,13 +95,14 @@ class Board
   end
 
   def generate_random_board
-
+    parts_count = 0
     for i in (0...@rows)
       for j in (0...@cols)
-        arr = [" ", " ", " ", "X", Part.new(i, j, self)] #possible things to be place in a cell
+        arr = [" ", " ", " ", "X", Part.new(i, j, self, parts_count)] #possible things to be place in a cell
         obj = arr[rand(arr.length)] # choose one of them at random
         if obj.is_a? Part
           @parts << obj
+          parts_count += 1
         end
         @board[i][j] = obj
       end
@@ -109,20 +112,20 @@ class Board
   end
 
   def to_s
-    puts 'rows: ' + @rows.to_s
-    puts 'cols: ' + @cols.to_s
-    puts " _"*@cols
+    #puts 'rows: ' + @rows.to_s
+    #puts 'cols: ' + @cols.to_s
+    #puts " _"*@cols
 
     for i in (0...@rows)
       print '|'
       print @board[i].join ' '
       print "|\n"
     end
-    puts " -"*@cols
+    #puts " -"*@cols
     @parts.each_with_index do |p, i|
-      puts "Part #{i}: "
+      #puts "Part #{i}: "
       p.positions.each do |pos|
-        puts pos.join(" , ")
+        #puts pos.join(" , ")
       end
     end
     ""
@@ -136,10 +139,10 @@ class Part
 
   attr_accessor :positions, :board
 
-  def initialize x, y, board
+  def initialize x, y, board, index
     @positions = Set.new
     @positions << [x,y]
-    @board = board
+    @board, @index = board, index
   end
 
   def set_board board
@@ -191,10 +194,10 @@ class Part
     # update the board now that you moved the parts
     @board.update_positions
 
-    puts "================Moved Board================="
-    puts @board
-    puts "Operator taken: #{positions.to_a} #{dir}"
-    puts "New position: #{@positions.to_a}"
+    #puts "================Moved Board================="
+    #puts @board
+    #puts "Operator taken: #{positions.to_a} #{dir}"
+    #puts "New position: #{@positions.to_a}"
     return parts_count * steps
   end
 
@@ -211,8 +214,11 @@ class Part
       #p next_positions
       checks = next_positions.map { |i| check_point i }
 
-      p dir
-      p checks
+      #puts "H"*50
+      #puts @positions.to_a
+      #puts dir
+      #puts checks
+      #puts "H"*50
       
       if checks.index('dead')
         return -1
@@ -262,7 +268,7 @@ class Part
   end
 
   def to_s
-    "O"
+    @index.to_s
   end
 end
 
@@ -276,18 +282,18 @@ class Problem
     @state_space = []
   end
 
-  def operators state
+  def self.operators state
     ops = []
     ops2 = []
-    dirs = [:N, :E, :W, :S]
+    dirs = [:N, :E, :S, :W]
     state.parts.each do |part|
       dirs.each do |direction|
         ops << [part, direction]
         ops2 << [part.positions.to_a, direction]
       end
     end
-    puts ">><<"*80
-    p ops2
+    #puts ">><<"*80
+    #p ops2
     ops
   end
 
@@ -306,7 +312,14 @@ end
 
 class Search
 
-  attr_accessor :board, :problem, :nodes
+  attr_accessor :board, :problem, :nodes, :last_node
+
+  @@last_node
+
+  def self.last_node
+    @@last_node
+
+  end
 
   def initialize problem, strategy=:BF
     @problem = problem
@@ -325,18 +338,23 @@ class Search
       
       node = @nodes.first
       @nodes.delete node
+
+      puts node
+      puts "*"*90
+
+      @@last_node = node
       
       if @problem.goal_test node.state
         return node
       end
 
-      puts ">>>>>>>>>>>>>>>> node count before: #{@nodes.count}"
-      puts "NN"*100
-      puts node.depth
-      puts "NN"*100
-      @nodes = queue(@nodes, Search.expand(node, @problem))
+      #puts ">>>>>>>>>>>>>>>> node count before: #{@nodes.count}"
+      #puts "NN"*100
+      #puts node.depth
+      #puts "NN"*100
+      @nodes = queue(@nodes, Search.expand(node))
 
-      puts "<<<<<<<<<<<<<<<< node count: #{@nodes.count}"
+      #puts "<<<<<<<<<<<<<<<< node count: #{@nodes.count}"
 
     end while !@nodes.empty?
     return false
@@ -350,11 +368,11 @@ class Search
 
   end
 
-  def self.expand node, problem
+  def self.expand node
     state = Marshal::load(Marshal.dump(node.state))
     #state = node.state#.clone
     nodes = []
-    problem.operators(state).each do |op|
+    Problem.operators(state).each do |op|
       part, dir = op
       part = Marshal::load(Marshal.dump(part))
       can_move = part.can_move dir
@@ -362,7 +380,7 @@ class Search
       if can_move >= 0
         cost = part.move can_move, dir
       end
-      if cost > 0
+      if cost >= 0
         new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
         nodes << new_node
       end
@@ -370,25 +388,25 @@ class Search
     nodes
   end
   #   x = @board.parts.first.send('move_E')#.move_E
-  #   puts '---------------------'
-  #   puts @board
-  #   puts x
-  #   puts @board.parts.length
+  #   #puts '---------------------'
+  #   #puts @board
+  #   #puts x
+  #   #puts @board.parts.length
   # end
 end
 
 class Solver
 
-  attr_accessor :problem
+  attr_accessor :problem, :board, :search
 
   def initialize file_name=nil
     @board = Board.new (2+rand(4)), (2+rand(4)), file_name
     #b2 = Marshal::load(Marshal.dump(@board))
     @problem = Problem.new @board
-    Search.new @problem
-    #puts @board.parts.__id__
-    #puts b2.parts.__id__
+    @search = Search.new @problem
+    ##puts @board.parts.__id__
+    ##puts b2.parts.__id__
   end
 end
 
-Solver.new 'test3'
+@solver = Solver.new 'test_ad'
