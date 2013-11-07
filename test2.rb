@@ -303,7 +303,7 @@ class Problem
   def initialize board
     @board = board
     @init_state = Marshal::load(Marshal.dump(@board))
-    @state_space = []
+    @state_space = Set.new
   end
 
   def self.operators state
@@ -358,7 +358,11 @@ class Search
 
       begin
         
+
+        #states = @nodes.map{ |i| i.state }
+
         node = @nodes.first
+        #@problem.state_space << node.state
         @nodes = @nodes - [node]
 
         print_node node
@@ -367,7 +371,7 @@ class Search
           return node
         end
 
-        @nodes = Search.expand(node) + @nodes
+        @nodes = Search.expand(node, @problem) + @nodes
 
         break if @nodes.empty?
 
@@ -385,6 +389,7 @@ class Search
     begin
       
       node = @nodes.first
+      #@problem.state_space << node.state
       @nodes.delete node
 
       print_node node
@@ -393,7 +398,8 @@ class Search
         return node
       end
 
-      @nodes = queue(@nodes, Search.expand(node))
+      #states = @nodes.map{ |i| i.state }
+      @nodes = queue(@nodes, Search.expand(node, @problem))
 
     end while !@nodes.empty?
     return false
@@ -421,9 +427,11 @@ class Search
 
   end
 
-  def self.expand node
+  def self.expand node, problem
     state = Marshal::load(Marshal.dump(node.state))
     nodes = []
+
+    #return if problem.state_space.member? node.state
 
     Problem.operators(state).each do |op|
       part, dir = op
@@ -435,7 +443,10 @@ class Search
       end
       if cost > 0
         new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
-        nodes << new_node
+        if !problem.state_space.member?(new_node.state)
+          nodes << new_node
+          problem.state_space << new_node.state
+        end
       end
     end
     nodes
@@ -454,4 +465,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new 'test4', :ID
+@solver = Solver.new 'test4', :BF
