@@ -332,11 +332,14 @@ end
 
 class Search
 
-  attr_accessor :board, :problem, :nodes
+  attr_accessor :board, :problem, :nodes, :goal_node, :expanded
+
+  require 'set'
 
   def initialize problem, strategy=:BF
     @problem = problem
     @strategy = strategy
+    @expanded = 0
     @nodes = []
     if @strategy == :ID
       solution = solve_id
@@ -347,40 +350,37 @@ class Search
     puts solution
   end
 
-
   # Solves with iterative deepening strategy
   def solve_id
     depth = 0
 
     while true
+      @nodes = []
       node = Node.new Marshal::load(Marshal.dump(@problem.init_state)), nil, nil, 0, 0
       @nodes << node
-
       begin
-        
-
-        #states = @nodes.map{ |i| i.state }
-
-        node = @nodes.first
-        #@problem.state_space << node.state
-        @nodes = @nodes - [node]
+        node = @nodes.shift
 
         print_node node
+        #puts "#{node.depth}  #{@nodes.count}"
         
         if @problem.goal_test node.state
+          @goal_node = node
           return node
         end
 
-        @nodes = Search.expand(node, @problem) + @nodes
-
-        break if @nodes.empty?
-
-      end while node.depth <= depth
+        if node.depth < depth && check_ancestor(node)
+          @nodes = expand(node) + @nodes
+          @expanded += 1
+        end
+        #@problem.state_space.merge (@nodes.map{ |i| i.state }).to_set
+      end while !@nodes.empty?
       depth += 1
-      break if @nodes.empty?
+      puts "========================"
     end
     return false
   end
+
 
   def solve
     node = Node.new @problem.init_state, nil, nil, 0, 0
@@ -388,21 +388,35 @@ class Search
 
     begin
       
-      node = @nodes.first
-      #@problem.state_space << node.state
-      @nodes.delete node
+      #remove first node
+      node = @nodes.shift
 
       print_node node
       
       if @problem.goal_test node.state
+        @goal_node = node
         return node
       end
 
       #states = @nodes.map{ |i| i.state }
-      @nodes = queue(@nodes, Search.expand(node, @problem))
-
+      if check_ancestor node
+        @nodes = queue(@nodes, expand(node))
+        @expanded += 1
+      end
     end while !@nodes.empty?
     return false
+  end
+
+  def check_ancestor node
+    state = node.state
+    current = node.parent
+    while current != nil
+      if current.state == state
+        return false
+      end
+      current = current.parent
+    end
+    true
   end
 
   def print_node node
@@ -412,7 +426,9 @@ class Search
     puts node.parent
     puts "Node"
     puts node
-    puts "Nodes count: #{@nodes.count}"
+    puts "Parts Count: #{node.state.parts.count}"
+    puts "Nodes in queue count: #{@nodes.count}"
+    puts "Nodes expanded count: #{@expanded}"
     puts "\n\n\n\n"
     puts "==============================================="
   end
@@ -427,7 +443,7 @@ class Search
 
   end
 
-  def self.expand node, problem
+  def expand node
     state = Marshal::load(Marshal.dump(node.state))
     nodes = []
 
@@ -443,10 +459,7 @@ class Search
       end
       if cost > 0
         new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
-        if !problem.state_space.member?(new_node.state)
-          nodes << new_node
-          problem.state_space << new_node.state
-        end
+        nodes << new_node
       end
     end
     nodes
@@ -457,12 +470,32 @@ class Solver
 
   attr_accessor :problem, :board, :search
 
-  def initialize file_name=nil, strategy=nil
-    @board = Board.new (2+rand(4)), (2+rand(4)), file_name
+  def initialize file_name=nil, strategy=nil, print_path=nil
+    @board = Board.new (2+rand(10)), (2+rand(10)), file_name
     @problem = Problem.new @board
     @search = Search.new @problem, strategy
+    if print_path && @search.goal_node
+      print_node_path
+    end
+  end
+
+  def print_node_path
+    arr = []
+    parent = nil
+    node = @search.goal_node
+    begin
+      arr << node
+      node = node.parent
+    end while node != nil
+
+    arr = arr.reverse
+
+    puts "---------------------PATH------------------------"
+    arr.each do |n|
+      puts n
+    end
   end
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new 'test4', :BF
+@solver = Solver.new nil, :DF, true
