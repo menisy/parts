@@ -36,9 +36,8 @@ class Board
     else
       generate_board_from_file file_name
     end
-    #puts "-"*10 + "Board Initialized" + "-"*10
-    #p self
 
+    assemble_parts
   end
 
   # Returns the next point from point "pt" given the direction "dir"
@@ -57,7 +56,7 @@ class Board
   end
 
   def generate_board_from_file file_name
-    #p @board
+
     @board = Array.new
     r, c = 0, 0
     parts_count = 0
@@ -90,36 +89,43 @@ class Board
     end
   end
 
+  # Assembles all the parts in the board who are neighboring each other
   def assemble_parts
-    @parts.each do |part|
-      part.positions.each do |pos|
-        around = around pos
-        around.each do |cell|
-          r, c = cell
-          if @board[r][c].is_a?(Part) && @board[r][c] != part
-            other_part = @board[r][c]
-            part.positions = part.positions + other_part.positions
-            @board[r][c] = part
-            self.parts.delete other_part
+    begin
+      changes = 0
+      @parts.each do |part|
+        part.positions.each do |pos|
+          around = around pos
+          around.each do |cell|
+            r, c = cell
+            if @board[r][c].is_a?(Part) && @board[r][c] != part
+              changes += 1
+              other_part = @board[r][c]
+              part.positions = part.positions + other_part.positions
+              @board[r][c] = part
+              self.parts.delete other_part
+              update_positions
+            end
           end
         end
       end
-    end
+    end while changes > 0
   end
 
   # Returns an array of the valid cells (max 4) around the given pt
   def around pt
-    points = []
     points = [:N, :E, :W, :S].map{ |d| next_point(pt, d) }
-    
+    pts = []
     # remove invalid points
     points.each do |point|
       r, c = point
-      if r == -1 || r == @rows || c == -1 || c == @cols
-        points.delete point
+      if ! (r == -1 || r == @rows || c == -1 || c == @cols)
+        pts << point
       end
     end
-    points
+    # puts "Pointssssssssssssssssss"
+    # puts points
+    pts
   end
 
   def update_positions
@@ -154,13 +160,10 @@ class Board
         @board[i][j] = obj
       end
     end
-
     p @board
   end
 
   def to_s
-    #puts 'rows: ' + @rows.to_s
-    #puts 'cols: ' + @cols.to_s
     puts " _"*@cols
 
     for i in (0...@rows)
@@ -169,12 +172,12 @@ class Board
       print "|\n"
     end
     puts " -"*@cols
-    @parts.each_with_index do |p, i|
-      #puts "Part #{i}: "
-      p.positions.each do |pos|
-        #puts pos.join(" , ")
-      end
-    end
+    # @parts.each_with_index do |p, i|
+    #   #puts "Part #{i}: "
+    #   p.positions.each do |pos|
+    #     #puts pos.join(" , ")
+    #   end
+    # end
     ""
   end
 end
@@ -209,8 +212,6 @@ class Part
   # Actually moves the part and returns the cost of movement
   def move steps, dir
 
-    #return 0 if steps == 0
-
     # count the positions to be moved first
     positions = @positions
     parts_count = positions.count
@@ -218,50 +219,15 @@ class Part
     # move the positions (steps) number of times
     steps.times{ @positions = (@positions.map{ |i| next_point(i, dir) }).to_set }
 
-    # get the next position to the one we stopped at
-    #next_positions = @positions.map{ |i| next_point(i, dir) }
-
     # update the board now that you moved the parts
     @board.update_positions
 
-    # check this next position, if any parts exist in it, connect us!
-    # next_positions.each do |pos|
-    #   r, c = pos
-    #   if r == -1 || r == @board.rows || c == -1 || c == @board.cols
-    #     next
-    #   end
-    #   if @board.board[r][c].is_a?(Part) && @board.board[r][c] != self
-    #     other_part = @board.board[r][c]
-    #     @positions = @positions + other_part.positions
-    #     @board.board[r][c] = self
-    #     @board.parts.delete other_part
-    #   end
-    # end
-
-    # check all cells around the new positions, if parts exist, connect us!
+    # check all cells around the new positions, if parts exist, connect them!
     @board.assemble_parts
-    #positions = @positions
 
-    # positions.each do |pos|
-    #   around = around pos
-    #   around.each do |pt|
-    #     r, c = pt
-    #     if @board.board[r][c].is_a?(Part) && @board.board[r][c] != self
-    #       other_part = @board.board[r][c]
-    #       @positions = @positions + other_part.positions
-    #       @board.board[r][c] = self
-    #       @board.parts.delete other_part
-    #     end
-    #   end
-    # end
-
-    # update the board now that you moved the parts
+    # update the board now that you assembled the parts
     @board.update_positions
 
-    #puts "================Moved Board================="
-    #puts @board
-    #puts "Operator taken: #{positions.to_a} #{dir}"
-    #puts "New position: #{@positions.to_a}"
     return parts_count * steps
   end
 
@@ -275,15 +241,9 @@ class Part
     # Move this shallow copy untill something stops it
     begin
       next_positions = positions.map{ |i| next_point(i, dir) }
-      #p next_positions
-      checks = next_positions.map { |i| check_point i }
 
-      #puts "H"*50
-      #puts @positions.to_a
-      #puts dir
-      #puts checks
-      #puts "H"*50
-      
+      checks = next_positions.map { |i| check_point i }
+   
       if checks.index('dead')
         return -1
       end
@@ -348,16 +308,12 @@ class Problem
 
   def self.operators state
     ops = []
-    ops2 = []
     dirs = [:N, :E, :S, :W]
     state.parts.each do |part|
       dirs.each do |direction|
         ops << [part, direction]
-        ops2 << [part.positions.to_a, direction]
       end
     end
-    #puts ">><<"*80
-    #p ops2
     ops
   end
 
@@ -376,22 +332,52 @@ end
 
 class Search
 
-  attr_accessor :board, :problem, :nodes, :last_node
-
-  @@last_node
-
-  def self.last_node
-    @@last_node
-
-  end
+  attr_accessor :board, :problem, :nodes
 
   def initialize problem, strategy=:BF
     @problem = problem
     @strategy = strategy
-    @nodes = Array.new
-    solution = solve
+    @nodes = []
+    if @strategy == :ID
+      solution = solve_id
+    else
+      solution = solve
+    end
     puts '---------------Solution-------------'
     puts solution
+  end
+
+
+  # Solves with iterative deepening strategy
+  def solve_id
+    depth = 0
+
+    while true
+      node = Node.new Marshal::load(Marshal.dump(@problem.init_state)), nil, nil, 0, 0
+      @nodes << node
+
+      begin
+        
+        node = @nodes.first
+        @nodes.delete node
+
+        print_node node
+        
+        if @problem.goal_test node.state
+          return node
+        end
+
+        @nodes = Search.expand(node) + @nodes
+
+        if @nodes.empty?
+          break
+        end
+
+      end while node.depth <= depth
+      depth += 1
+      break if @nodes.empty?
+    end
+    return false
   end
 
   def solve
@@ -403,81 +389,71 @@ class Search
       node = @nodes.first
       @nodes.delete node
 
-      puts "*"*90
-      puts "Node to be Expanded"
-      puts "Parent"
-      puts node.parent
-      puts "Node"
-      puts node
-      puts "Nodes count: #{@nodes.count}"
-      puts "*"*90
-
-      @@last_node = node
+      print_node node
       
       if @problem.goal_test node.state
         return node
       end
 
-      #puts ">>>>>>>>>>>>>>>> node count before: #{@nodes.count}"
-      #puts "NN"*100
-      #puts node.depth
-      #puts "NN"*100
       @nodes = queue(@nodes, Search.expand(node))
-
-      #puts "<<<<<<<<<<<<<<<< node count: #{@nodes.count}"
 
     end while !@nodes.empty?
     return false
+  end
+
+  def print_node node
+    puts "\n\n\n\n"
+    puts "Node to be Expanded"
+    puts "Parent"
+    puts node.parent
+    puts "Node"
+    puts node
+    puts "Nodes count: #{@nodes.count}"
+    puts "\n\n\n\n"
+    puts "==============================================="
   end
 
   def queue nodes, expanded
     case @strategy
     when :BF
       return nodes + expanded
+    when :DF
+      return expanded + nodes
     end
 
   end
 
   def self.expand node
     state = Marshal::load(Marshal.dump(node.state))
-    #state = node.state#.clone
     nodes = []
+
     Problem.operators(state).each do |op|
       part, dir = op
       part = Marshal::load(Marshal.dump(part))
       can_move = part.can_move dir
       cost = 0
-      if can_move >= 0
+      if can_move > 0
         cost = part.move can_move, dir
       end
-      if cost >= 0 && can_move >=0
+      if cost > 0
         new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
         nodes << new_node
       end
     end
     nodes
   end
-  #   x = @board.parts.first.send('move_E')#.move_E
-  #   #puts '---------------------'
-  #   #puts @board
-  #   #puts x
-  #   #puts @board.parts.length
-  # end
 end
 
 class Solver
 
   attr_accessor :problem, :board, :search
 
-  def initialize file_name=nil
+  def initialize file_name=nil, strategy=nil
     @board = Board.new (2+rand(4)), (2+rand(4)), file_name
-    #b2 = Marshal::load(Marshal.dump(@board))
     @problem = Problem.new @board
-    @search = Search.new @problem
-    ##puts @board.parts.__id__
-    ##puts b2.parts.__id__
+    @search = Search.new @problem, strategy
   end
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new 'test2'
+@solver = Solver.new nil, :ID

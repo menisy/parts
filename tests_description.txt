@@ -1,0 +1,12 @@
+test1 same for BFS, DFS, & ID (solvable) with 3 nodes in the qeue
+
+test2 DFS solves with 1 nodes in queue
+      BFS solves with 1 nodes in qeue
+      ID solves with 2 nodes in qeue
+
+test3 DFS solves with 10 nodes ''
+      BFS solves with 46 nodes ''
+
+test_long DFS solves with 12 nodes in queue
+          BFS solves with 171 nodes ''
+          ID solves with 15 nodes
