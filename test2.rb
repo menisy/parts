@@ -41,6 +41,21 @@ class Board
 
   end
 
+  # Returns the next point from point "pt" given the direction "dir"
+  def next_point pt, dir
+    r, c = pt
+    case dir
+    when :N
+      [r - 1, c]
+    when :E
+      [r, c + 1]
+    when :W
+      [r, c - 1]
+    when :S
+      [r + 1, c]
+    end
+  end
+
   def generate_board_from_file file_name
     #p @board
     @board = Array.new
@@ -73,6 +88,38 @@ class Board
     else
       1
     end
+  end
+
+  def assemble_parts
+    @parts.each do |part|
+      part.positions.each do |pos|
+        around = around pos
+        around.each do |cell|
+          r, c = cell
+          if @board[r][c].is_a?(Part) && @board[r][c] != part
+            other_part = @board[r][c]
+            part.positions = part.positions + other_part.positions
+            @board[r][c] = part
+            self.parts.delete other_part
+          end
+        end
+      end
+    end
+  end
+
+  # Returns an array of the valid cells (max 4) around the given pt
+  def around pt
+    points = []
+    points = [:N, :E, :W, :S].map{ |d| next_point(pt, d) }
+    
+    # remove invalid points
+    points.each do |point|
+      r, c = point
+      if r == -1 || r == @rows || c == -1 || c == @cols
+        points.delete point
+      end
+    end
+    points
   end
 
   def update_positions
@@ -172,24 +219,41 @@ class Part
     steps.times{ @positions = (@positions.map{ |i| next_point(i, dir) }).to_set }
 
     # get the next position to the one we stopped at
-    next_positions = @positions.map{ |i| next_point(i, dir) }
+    #next_positions = @positions.map{ |i| next_point(i, dir) }
 
     # update the board now that you moved the parts
     @board.update_positions
 
     # check this next position, if any parts exist in it, connect us!
-    next_positions.each do |pos|
-      r, c = pos
-      if r == -1 || r == @board.rows || c == -1 || c == @board.cols
-        next
-      end
-      if @board.board[r][c].is_a?(Part) && @board.board[r][c] != self
-        other_part = @board.board[r][c]
-        @positions = @positions + other_part.positions
-        @board.board[r][c] = self
-        @board.parts.delete other_part
-      end
-    end
+    # next_positions.each do |pos|
+    #   r, c = pos
+    #   if r == -1 || r == @board.rows || c == -1 || c == @board.cols
+    #     next
+    #   end
+    #   if @board.board[r][c].is_a?(Part) && @board.board[r][c] != self
+    #     other_part = @board.board[r][c]
+    #     @positions = @positions + other_part.positions
+    #     @board.board[r][c] = self
+    #     @board.parts.delete other_part
+    #   end
+    # end
+
+    # check all cells around the new positions, if parts exist, connect us!
+    @board.assemble_parts
+    #positions = @positions
+
+    # positions.each do |pos|
+    #   around = around pos
+    #   around.each do |pt|
+    #     r, c = pt
+    #     if @board.board[r][c].is_a?(Part) && @board.board[r][c] != self
+    #       other_part = @board.board[r][c]
+    #       @positions = @positions + other_part.positions
+    #       @board.board[r][c] = self
+    #       @board.parts.delete other_part
+    #     end
+    #   end
+    # end
 
     # update the board now that you moved the parts
     @board.update_positions
@@ -416,4 +480,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new# 'test2'
+@solver = Solver.new 'test2'
