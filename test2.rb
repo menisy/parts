@@ -359,7 +359,7 @@ class Search
       begin
         
         node = @nodes.first
-        @nodes.delete node
+        @nodes = @nodes - [node]
 
         print_node node
         
@@ -369,9 +369,7 @@ class Search
 
         @nodes = Search.expand(node) + @nodes
 
-        if @nodes.empty?
-          break
-        end
+        break if @nodes.empty?
 
       end while node.depth <= depth
       depth += 1
@@ -456,4 +454,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new nil, :ID
+@solver = Solver.new 'test4', :ID
