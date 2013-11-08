@@ -259,7 +259,7 @@ class Part
     @board.assemble_parts
 
     # update the board now that you assembled the parts
-    @board.update_positionsc
+    @board.update_positions
 
     return parts_count * steps
   end
@@ -566,7 +566,7 @@ class Solver
   attr_accessor :problem, :board, :search
 
   def initialize file_name=nil, strategy=nil, print_path=nil, debug=nil
-    @board = Board.new (2+rand(10)), (2+rand(10)), file_name
+    @board = Board.new (2+rand(6)), (2+rand(6)), file_name
     @problem = Problem.new @board
     @search = Search.new @problem, strategy, debug
     if print_path && @search.goal_node
@@ -593,4 +593,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new 'test_long', :BF, true, true
+@solver = Solver.new nil, :BF, true, true
