@@ -1,21 +1,11 @@
 require 'set'
 
 class Node
-  
-  include Comparable
 
   attr_accessor :state, :parent, :operator, :depth, :path_cost
 
   def initialize state, parent, operator, depth, path_cost
     @state, @parent, @operator, @depth, @path_cost = state, parent, operator, depth, path_cost
-  end
-
-  def <=>(another_node)
-    if @state == another_node.state && @parent == another_node.parent && @operator == another_node.operator && @depth == another_node.depth && @path_cost == another_node.path_cost
-      0
-    else
-      1
-    end
   end
 
   def to_s
@@ -376,17 +366,17 @@ end
 
 class Search
 
-  attr_accessor :board, :problem, :nodes, :goal_node, :expanded
+  attr_accessor :board, :problem, :nodes, :goal_node, :expanded, :debug
 
-  def initialize problem, strategy=:BF
-    @problem = problem
-    @strategy = strategy
+  def initialize problem, strategy=:BF, debug
+    @problem, @strategy, @debug = problem, strategy, debug
+    
     @expanded = 0
     @nodes = []
-    if @strategy == :ID
-      solution = solve_id
-    end
+
     case @strategy
+    when :ID
+      solution = solve_id
     when :BF, :DF
       solution = solve
     else
@@ -408,7 +398,7 @@ class Search
       begin
         node = @nodes.shift
 
-        print_node node
+        print_node node if @debug
         #puts "#{node.depth}  #{@nodes.count}"
         
         if @problem.goal_test node.state
@@ -423,7 +413,6 @@ class Search
         #@problem.state_space.merge (@nodes.map{ |i| i.state }).to_set
       end while !@nodes.empty?
       depth += 1
-      puts "========================"
     end
     return false
   end
@@ -439,7 +428,7 @@ class Search
       #remove first node
       node = @nodes.shift
 
-      print_node node
+      print_node node if @debug
       
       if @problem.goal_test node.state
         @goal_node = node
@@ -469,7 +458,7 @@ class Search
       if @nodes[@nodes.keys.min].empty?
         @nodes.delete @nodes.keys.min
       end
-      print_node node
+      print_node node if @debug
       
       if @problem.goal_test node.state
         @goal_node = node
@@ -569,7 +558,7 @@ class Search
   end
 
   def h node
-    cost = 999999999999
+    cost = 0 
     case @strategy
     when :GR1
       cost = Problem.h1 node.state
@@ -580,9 +569,6 @@ class Search
     when :AS2
       cost = Problem.h2(node.state) + node.path_cost
     end
-    puts "COOOOOOOOOOOOOOOOOOOOSSSSSSSSSSTTTTTTTTTTTTt"
-    puts cost
-    #puts @nodes
     cost
   end
 end
@@ -591,10 +577,10 @@ class Solver
 
   attr_accessor :problem, :board, :search
 
-  def initialize file_name=nil, strategy=nil, print_path=nil
+  def initialize file_name=nil, strategy=nil, print_path=nil, debug=nil
     @board = Board.new (2+rand(10)), (2+rand(10)), file_name
     @problem = Problem.new @board
-    @search = Search.new @problem, strategy
+    @search = Search.new @problem, strategy, debug
     if print_path && @search.goal_node
       print_node_path
     end
@@ -619,4 +605,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new 'test_longer', :BF, true
+@solver = Solver.new 'test_longer', :ID, true, false
