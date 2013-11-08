@@ -1,3 +1,5 @@
+require 'set'
+
 class Node
   
   include Comparable
@@ -87,6 +89,29 @@ class Board
     else
       1
     end
+  end
+
+  # Returns the minimum distance between a part and a given set of parts.
+  def self.get_min_distance part, parts
+    arr = []
+    parts.each do |p|
+      arr << get_min_point_distance(part, p)
+    end
+    arr.min
+  end
+
+  # Returns the minimum "edge to edge" distance between 2 parts.
+  def self.get_min_point_distance part1, part2
+    arr = []
+    part1.positions.each do |pos1|
+      part2.positions.each do |pos2|
+        x1, y1 = pos1
+        x2, y2 = pos2
+        dist = (x1 - x2).abs + (y1 - y2).abs
+        arr << dist
+      end
+    end
+    arr.min
   end
 
   # Assembles all the parts in the board who are neighboring each other
@@ -185,8 +210,6 @@ end
 class Part
   include Comparable
 
-  require 'set'
-
   attr_accessor :positions, :board
 
   def initialize x, y, board, index
@@ -203,8 +226,10 @@ class Part
   def <=>(another_part)
     if @positions == another_part.positions
       0
-    else
+    elsif @positions.count > another_part.positions.count
       1
+    else
+      -1
     end
   end
 
@@ -328,13 +353,30 @@ class Problem
   def path_cost nodes
     #TODO total cost of nodes
   end
+
+  # First heuristic function, returns the number of blocks that make up the smallest part on the board
+  def self.h1 state
+    if state.parts.count == 1
+      return 0
+    end
+    smallest_part = state.parts.min
+    return smallest_part.positions.count
+  end
+
+  # Second heuristic function, a bit complex to exaplain here, please see the report
+  def self.h2 state
+    if state.parts.count == 1
+      return 0
+    end
+    smallest_part = state.parts.min
+    smallest_distance = Board.get_min_distance smallest_part, (state.parts - [smallest_part])
+    return (smallest_distance - 1) * smallest_part.positions.count
+  end
 end
 
 class Search
 
   attr_accessor :board, :problem, :nodes, :goal_node, :expanded
-
-  require 'set'
 
   def initialize problem, strategy=:BF
     @problem = problem
@@ -343,9 +385,14 @@ class Search
     @nodes = []
     if @strategy == :ID
       solution = solve_id
-    else
-      solution = solve
     end
+    case @strategy
+    when :BF, :DF
+      solution = solve
+    else
+      solution = solve_h
+    end
+
     puts '---------------Solution-------------'
     puts solution
   end
@@ -369,7 +416,7 @@ class Search
           return node
         end
 
-        if node.depth < depth && check_ancestor(node)
+        if node.depth < depth
           @nodes = expand(node) + @nodes
           @expanded += 1
         end
@@ -383,6 +430,7 @@ class Search
 
 
   def solve
+    @nodes = []
     node = Node.new @problem.init_state, nil, nil, 0, 0
     @nodes << node
 
@@ -398,9 +446,38 @@ class Search
         return node
       end
 
-      #states = @nodes.map{ |i| i.state }
       if check_ancestor node
         @nodes = queue(@nodes, expand(node))
+        @expanded += 1
+      end
+    end while !@nodes.empty?
+    return false
+  end
+
+  def solve_h
+    @nodes = {}
+    node = Node.new @problem.init_state, nil, nil, 0, 0
+    @nodes[0] = [node]
+
+    begin
+      
+      #remove first node
+      node = @nodes[@nodes.keys.min].first
+      
+      @nodes[@nodes.keys.min].delete node
+      
+      if @nodes[@nodes.keys.min].empty?
+        @nodes.delete @nodes.keys.min
+      end
+      print_node node
+      
+      if @problem.goal_test node.state
+        @goal_node = node
+        return node
+      end
+
+      if check_ancestor node
+        @nodes = queue(@nodes, expand_h(node))
         @expanded += 1
       end
     end while !@nodes.empty?
@@ -439,6 +516,12 @@ class Search
       return nodes + expanded
     when :DF
       return expanded + nodes
+    else
+      for key in expanded.keys
+        nodes[key] = [] unless nodes[key]
+        nodes[key] = nodes[key] + expanded[key]
+      end
+      return nodes
     end
 
   end
@@ -446,8 +529,6 @@ class Search
   def expand node
     state = Marshal::load(Marshal.dump(node.state))
     nodes = []
-
-    #return if problem.state_space.member? node.state
 
     Problem.operators(state).each do |op|
       part, dir = op
@@ -463,6 +544,46 @@ class Search
       end
     end
     nodes
+  end
+
+  def expand_h node
+    state = Marshal::load(Marshal.dump(node.state))
+    nodes = {}
+
+    Problem.operators(state).each do |op|
+      part, dir = op
+      part = Marshal::load(Marshal.dump(part))
+      can_move = part.can_move dir
+      cost = 0
+      if can_move > 0
+        cost = part.move can_move, dir
+      end
+      if cost > 0
+        new_node = Node.new(part.board, node, op, node.depth + 1, node.path_cost + cost)
+        h_cost = h new_node
+        nodes[h_cost] = [] unless nodes[h_cost]
+        nodes[h_cost] << new_node
+      end
+    end
+    nodes
+  end
+
+  def h node
+    cost = 999999999999
+    case @strategy
+    when :GR1
+      cost = Problem.h1 node.state
+    when :GR2
+      cost = Problem.h2 node.state
+    when :AS1
+      cost = Problem.h1(node.state) + node.path_cost
+    when :AS2
+      cost = Problem.h2(node.state) + node.path_cost
+    end
+    puts "COOOOOOOOOOOOOOOOOOOOSSSSSSSSSSTTTTTTTTTTTTt"
+    puts cost
+    #puts @nodes
+    cost
   end
 end
 
@@ -498,4 +619,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new nil, :DF, true
+@solver = Solver.new 'test_longer', :BF, true
