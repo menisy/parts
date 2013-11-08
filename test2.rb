@@ -73,6 +73,22 @@ class Board
     @rows, @cols = r, c
   end
 
+  def generate_random_board
+    parts_count = 0
+    for i in (0...@rows)
+      for j in (0...@cols)
+        arr = [" ", " ", " ", "X", Part.new(i, j, self, parts_count)] #possible things to be place in a cell
+        obj = arr[rand(arr.length)] # choose one of them at random
+        if obj.is_a? Part
+          @parts << obj
+          parts_count += 1
+        end
+        @board[i][j] = obj
+      end
+    end
+    p @board
+  end
+
   def <=>(another_board)
     if @parts == another_board.parts
       0
@@ -104,7 +120,7 @@ class Board
     arr.min
   end
 
-  # Assembles all the parts in the board who are neighboring each other
+  # Assembles all the parts in the board who are neighboring each other (fixed point)
   def assemble_parts
     begin
       changes = 0
@@ -138,8 +154,6 @@ class Board
         pts << point
       end
     end
-    # puts "Pointssssssssssssssssss"
-    # puts points
     pts
   end
 
@@ -162,22 +176,6 @@ class Board
     end
   end
 
-  def generate_random_board
-    parts_count = 0
-    for i in (0...@rows)
-      for j in (0...@cols)
-        arr = [" ", " ", " ", "X", Part.new(i, j, self, parts_count)] #possible things to be place in a cell
-        obj = arr[rand(arr.length)] # choose one of them at random
-        if obj.is_a? Part
-          @parts << obj
-          parts_count += 1
-        end
-        @board[i][j] = obj
-      end
-    end
-    p @board
-  end
-
   def to_s
     puts " _"*@cols
 
@@ -187,12 +185,6 @@ class Board
       print "|\n"
     end
     puts " -"*@cols
-    # @parts.each_with_index do |p, i|
-    #   #puts "Part #{i}: "
-    #   p.positions.each do |pos|
-    #     #puts pos.join(" , ")
-    #   end
-    # end
     ""
   end
 end
@@ -223,29 +215,6 @@ class Part
     end
   end
 
-
-  # Actually moves the part and returns the cost of movement
-  def move steps, dir
-
-    # count the positions to be moved first
-    positions = @positions
-    parts_count = positions.count
-
-    # move the positions (steps) number of times
-    steps.times{ @positions = (@positions.map{ |i| next_point(i, dir) }).to_set }
-
-    # update the board now that you moved the parts
-    @board.update_positions
-
-    # check all cells around the new positions, if parts exist, connect them!
-    @board.assemble_parts
-
-    # update the board now that you assembled the parts
-    @board.update_positions
-
-    return parts_count * steps
-  end
-
   # Checks if the part can move in this direction or not returning number of moves
   def can_move dir
     moves = 0
@@ -270,6 +239,29 @@ class Part
         return moves
       end
     end while true
+  end
+
+
+  # Actually moves the part and returns the cost of movement
+  def move steps, dir
+
+    # count the positions to be moved first
+    positions = @positions
+    parts_count = positions.count
+
+    # move the positions (steps) number of times
+    steps.times{ @positions = (@positions.map{ |i| next_point(i, dir) }).to_set }
+
+    # update the board now that you moved the parts
+    @board.update_positions
+
+    # check all cells around the new positions, if parts exist, connect them!
+    @board.assemble_parts
+
+    # update the board now that you assembled the parts
+    @board.update_positionsc
+
+    return parts_count * steps
   end
 
   # Returns a string representing the status of the given "pt" on the board
@@ -321,6 +313,7 @@ class Problem
     @state_space = Set.new
   end
 
+  # Returns a set of possible operators for a given state "board"
   def self.operators state
     ops = []
     dirs = [:N, :E, :S, :W]
@@ -332,32 +325,27 @@ class Problem
     ops
   end
 
+  # Checks if we reached a goal state by checking the number of parts
   def goal_test state
-    if state.parts.count == 1
-      true
-    else
-      false
-    end
+    state.parts.count == 1
   end
 
   def path_cost nodes
-    #TODO total cost of nodes
+    return nodes.last.path_cost
   end
 
   # First heuristic function, returns the number of blocks that make up the smallest part on the board
   def self.h1 state
-    if state.parts.count == 1
-      return 0
-    end
+    return 0 if state.parts.count == 1
+
     smallest_part = state.parts.min
     return smallest_part.positions.count
   end
 
   # Second heuristic function, a bit complex to exaplain here, please see the report
   def self.h2 state
-    if state.parts.count == 1
-      return 0
-    end
+    return 0 if state.parts.count == 1
+
     smallest_part = state.parts.min
     smallest_distance = Board.get_min_distance smallest_part, (state.parts - [smallest_part])
     return (smallest_distance - 1) * smallest_part.positions.count
@@ -605,4 +593,4 @@ class Solver
 end
 
 #@solver = Solver.new 'test_ad'
-@solver = Solver.new 'test_longer', :ID, true, false
+@solver = Solver.new 'test_long', :BF, true, true
